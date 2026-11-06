@@ -42,7 +42,7 @@ It is four plain CSS files to paste into Jellyfin's **Custom CSS** box: **Flatca
 <table>
   <tr>
     <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-home.png" alt="Flatcap TV home in the TV layout" width="100%"></td>
-    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-focus.png" alt="Flatcap TV focused card with the focus ring" width="100%"></td>
+    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-focus.png" alt="Flatcap TV focused card: inset focus ring on the poster, desktop layout" width="100%"></td>
   </tr>
   <tr>
     <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-library.png" alt="Flatcap TV library grid" width="100%"></td>
@@ -69,7 +69,7 @@ Pasting is required: an `@import` of the raw GitHub URL does **not** work. `raw.
 
 - **Slate** and **Daylight** are fixed modes. **System** holds both sets and switches with `prefers-color-scheme` (Slate, or Daylight when the device is light).
 - The video player on-screen controls, the resume bar on posters and the volume popups stay on the dark Slate palette in every file: they sit on video or artwork, so a light Daylight panel there would be unreadable.
-- **Flatcap TV** is Slate-only and standalone (paste it alone, base theme Dark; it already contains everything Slate has). It is made for the TV layout and for sitting back from a screen: a thin flat header (transparent over backdrops, a Slate surface otherwise), larger posters and more room between rows, a compact *My Media* row, larger section titles, a crisp 2px focus ring with a 1.04 scale on the focused or hovered card (ring only under reduced motion), and an item page whose backdrop fades to the canvas so the text stays readable. Card titles stay visible. If you prefer artwork only, the last lines of the file hold a commented-out block, **"Optional: show titles only on focus/hover"**: uncomment it to hide titles until a card is focused or hovered; cards without artwork keep their title.
+- **Flatcap TV** is Slate-only and standalone (paste it alone, base theme Dark; it already contains everything Slate has). It is made for the TV layout and for sitting back from a screen: a thin flat header (transparent over backdrops, a Slate surface otherwise), larger posters and more room between rows, a compact *My Media* row, larger section titles, a crisp 2px focus ring drawn inside the poster edge with the artwork zooming 1.04 inside its own frame on the focused or hovered card (the card, its title and its neighbours never move or grow, so no row can clip it; ring only under reduced motion), and an item page whose backdrop fades to the canvas so the text stays readable. Card titles stay visible. If you prefer artwork only, the last lines of the file hold a commented-out block, **"Optional: show titles only on focus/hover"**: uncomment it to hide titles until a card is focused or hovered; cards without artwork keep their title.
 - Each user can switch the custom CSS off for themselves (*Settings → Display*, "Disable custom CSS" in 12.4) and can add their own CSS on top.
 - **The server Dashboard (administration pages) does not receive Branding Custom CSS in 12.4.0**: every `/dashboard/*` route checked kept Jellyfin's stock styling. Home, libraries, item pages, search, the player and *Settings* (user preferences) are themed.
 

@@ -66,15 +66,17 @@ html .playedIndicator,html .countIndicator{background:var(--fc-accent);color:var
 html .playedIndicator{font-size:62%}
 html .countIndicator{font-size:76%}
 html .itemProgressBar{height:3px}
-/* Flatcap TV: focus and hover (ring in the focus role, card scales, neighbours stay put) */
-html .itemsContainer .card .cardBox{transition:transform 120ms ease-out;will-change:transform}
-html .card.show-focus .cardBox.visualCardBox,html .card.show-focus .cardBox:not(.visualCardBox) .cardScalable{border:0!important;border-radius:0}
-html .card.show-focus:not(.show-animation) .cardBox{margin-left:.6em;margin-right:.6em;margin-top:.6em}
-html .itemsContainer .card:is(:hover,:focus-visible,.show-focus:focus) .cardBox{transform:scale(1.04)!important;outline:2px solid var(--fc-ring)!important;outline-offset:2px}
-html .itemsContainer .card:has(:focus-visible) .cardBox{transform:scale(1.04)!important;outline:2px solid var(--fc-ring)!important;outline-offset:2px}
-html .itemsContainer .card .cardContent:focus-visible{outline:none!important}
-html .emby-button.show-focus:focus{transform:scale(1.04)}
-@media(prefers-reduced-motion:reduce){html .itemsContainer .card .cardBox{transition:none;will-change:auto}html .itemsContainer .card:is(:hover,:focus-visible,.show-focus:focus) .cardBox{transform:none!important}html .itemsContainer .card:has(:focus-visible) .cardBox{transform:none!important}html .emby-button.show-focus:focus{transform:none}}
+/* Flatcap TV: focus and hover (the artwork zooms inside its own frame and an inset ring marks the poster; nothing grows past the card, so no row can clip it) */
+html .card .cardScalable{overflow:hidden;border-radius:0.25rem}
+html .itemsContainer .card .cardImageContainer{transition:transform 120ms ease-out;will-change:transform}
+html .itemsContainer .card .cardScalable::after{content:"";position:absolute;inset:0;z-index:3;box-sizing:border-box;pointer-events:none;border:2px solid var(--fc-ring);border-radius:inherit;outline:1px solid var(--fc-canvas);outline-offset:calc(-1px - 2px);opacity:0}
+html .itemsContainer .card:is(:hover,:focus-visible,.show-focus:focus,:has(:focus-visible)) .cardImageContainer{transform:scale(1.04)}
+html .itemsContainer .card:is(:hover,:focus-visible,.show-focus:focus,:has(:focus-visible)) .cardScalable::after{opacity:1}
+html .itemsContainer .card .cardContent:focus-visible,html .itemsContainer .card:focus-visible .cardBox,html .itemsContainer .card:focus,html .itemsContainer .card:focus .cardBox{outline:none!important}
+html .card.show-animation:focus>.cardBox{transform:none}
+html .card.show-focus:not(.show-animation) .cardBox.visualCardBox,html .card.show-focus:not(.show-animation) .cardBox:not(.visualCardBox) .cardScalable{border:0;border-radius:0.25rem}
+html .card.show-focus:not(.show-animation) .cardBox{margin:.6em}
+@media(prefers-reduced-motion:reduce){html .itemsContainer .card .cardImageContainer{transition:none;will-change:auto}html .itemsContainer .card:is(:hover,:focus-visible,.show-focus:focus,:has(:focus-visible)) .cardImageContainer{transform:none}}
 /* Flatcap TV: item page (matte scrim to the canvas; one primary Play, the rest icon buttons) */
 html .layout-desktop .itemBackdrop{height:52vh}
 html .backgroundContainer.withBackdrop{opacity:0.9}

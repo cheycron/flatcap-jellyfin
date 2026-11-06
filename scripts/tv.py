@@ -36,7 +36,9 @@ def tv_css(theme: dict) -> str:
     item_scrim = _grad(CV % 0.30, CV % 0.55 + " 20vh", CV % SCRIM_ALPHA + " calc(52vh - 10em)", "var(--fc-canvas) 52vh", "var(--fc-canvas)")
     ring = "outline:@fw@ solid var(--fc-ring)!important;outline-offset:@fo@"
     card = "html .itemsContainer .card"
-    on_card = f"{card}:is(:hover,:focus-visible,.show-focus:focus) .cardBox"
+    on = ":is(:hover,:focus-visible,.show-focus:focus,:has(:focus-visible))"
+    zoom = f"{card}{on} .cardImageContainer"
+    rung = f"{card}{on} .cardScalable::after"
 
     R: list = [
         ("/* Flatcap TV: header */", None),
@@ -86,19 +88,24 @@ def tv_css(theme: dict) -> str:
         ("html .countIndicator", "font-size:76%"),
         ("html .itemProgressBar", "height:3px"),
 
-        ("/* Flatcap TV: focus and hover (ring in the focus role, card scales, neighbours stay put) */", None),
-        (f"{card} .cardBox", "transition:transform @fast@ ease-out;will-change:transform"),
-        ("html .card.show-focus .cardBox.visualCardBox,html .card.show-focus .cardBox:not(.visualCardBox) .cardScalable", "border:0!important;border-radius:0"),
-        ("html .card.show-focus:not(.show-animation) .cardBox", "margin-left:.6em;margin-right:.6em;margin-top:.6em"),
-        (on_card, f"transform:scale(1.04)!important;{ring}"),
-        (f"{card}:has(:focus-visible) .cardBox", f"transform:scale(1.04)!important;{ring}"),
-        ("html .itemsContainer .card .cardContent:focus-visible", "outline:none!important"),
-        ("html .emby-button.show-focus:focus", "transform:scale(1.04)"),
+        ("/* Flatcap TV: focus and hover (the artwork zooms inside its own frame and an inset ring marks the poster; nothing grows past the card, so no row can clip it) */", None),
+        # the frame: the poster clips its own contents to the card radius
+        ("html .card .cardScalable", "overflow:hidden;border-radius:@rc@"),
+        (f"{card} .cardImageContainer", "transition:transform @fast@ ease-out;will-change:transform"),
+        (f"{card} .cardScalable::after", "content:\"\";position:absolute;inset:0;z-index:3;box-sizing:border-box;pointer-events:none;border:@fw@ solid var(--fc-ring);border-radius:inherit;"
+                                       "outline:1px solid var(--fc-canvas);outline-offset:calc(-1px - @fw@);opacity:0"),
+        (zoom, "transform:scale(1.04)"),
+        (rung, "opacity:1"),
+        # the poster ring replaces the box-wide outline that the shared Slate rules and the browser draw on the card
+        (f"{card} .cardContent:focus-visible,{card}:focus-visible .cardBox,{card}:focus,{card}:focus .cardBox", "outline:none!important"),
+        # TV layout: Jellyfin scales the whole card box 1.07 on focus (`.card.show-animation:focus>.cardBox`), which is what needs room outside the card
+        ("html .card.show-animation:focus>.cardBox", "transform:none"),
+        # TV layout: Jellyfin pads a focused card with a transparent border and a smaller margin; the frame does that job now
+        ("html .card.show-focus:not(.show-animation) .cardBox.visualCardBox,html .card.show-focus:not(.show-animation) .cardBox:not(.visualCardBox) .cardScalable", "border:0;border-radius:@rc@"),
+        ("html .card.show-focus:not(.show-animation) .cardBox", "margin:.6em"),
         ("@media(prefers-reduced-motion:reduce)", [
-            (f"{card} .cardBox", "transition:none;will-change:auto"),
-            (on_card, "transform:none!important"),
-            (f"{card}:has(:focus-visible) .cardBox", "transform:none!important"),
-            ("html .emby-button.show-focus:focus", "transform:none")]),
+            (f"{card} .cardImageContainer", "transition:none;will-change:auto"),
+            (zoom, "transform:none")]),
 
         ("/* Flatcap TV: item page (matte scrim to the canvas; one primary Play, the rest icon buttons) */", None),
         ("html .layout-desktop .itemBackdrop", "height:52vh"),
@@ -172,9 +179,10 @@ def pairs(theme: dict) -> list[tuple[str, str, str, str, float, str]]:
             out.append((mode, f"{n} (item title, metadata, overview) on item scrim (canvas @{SCRIM_ALPHA * 100:.0f}%) over a {name} backdrop", t[n], scr, tg, "tv"))
     for n in ("accent.fill", "accent.hover"):
         out.append((mode, f"accent.on on {n} (primary Play button, played and count badge)", t["accent.on"], t[n], 4.5, "tv"))
+    # the ring is drawn on the poster's own edge: outside it is the page, inside it a 1px canvas hairline, so it is always between two dark neighbours
     for s in ("canvas", "surface", "raised"):
-        out.append((mode, f"focus.ring on bg.{s} (2px card ring, offset 2px: the gap shows the page surface)", t["focus.ring"], t[f"bg.{s}"], 3.0, "tv"))
-    out.append((mode, "focus.ring on a black poster edge", t["focus.ring"], "#000000", 3.0, "tv"))
-    out.append((mode, "focus.ring on a white poster edge (report only: the 2px offset keeps the ring off the artwork)", t["focus.ring"], "#FFFFFF", 1.0, "report"))
+        out.append((mode, f"focus.ring on bg.{s} (2px inset poster ring: the page outside the poster edge, and the 1px canvas hairline inside it)", t["focus.ring"], t[f"bg.{s}"], 3.0, "tv"))
+    out.append((mode, "focus.ring on a black poster", t["focus.ring"], "#000000", 3.0, "tv"))
+    out.append((mode, "focus.ring on a white poster (report only: the ring is read against the page and the canvas hairline either side of it, not against the art)", t["focus.ring"], "#FFFFFF", 1.0, "report"))
     out.append((mode, "accent.fill badge edge on a white poster (report only: the badge glyph carries the meaning, accent.on on accent.fill is measured above)", t["accent.fill"], "#FFFFFF", 1.0, "report"))
     return out
