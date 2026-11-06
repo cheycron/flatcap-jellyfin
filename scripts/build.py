@@ -22,7 +22,7 @@ import color as C  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 THEME = ROOT / "src" / "theme.json"
 INV = ROOT / "src" / "jellyfin-inventory.json"
-FILES = {"slate": "flatcap-slate.css", "daylight": "flatcap-daylight.css", "system": "flatcap-system.css"}
+FILES = {"slate": "flatcap-slate.css", "daylight": "flatcap-daylight.css", "system": "flatcap-system.css", "tv": "flatcap-tv.css"}
 
 # --fc-* roles used by the rules: css name -> theme.json key
 ROLES = {
@@ -33,6 +33,7 @@ ROLES = {
     "warn-bg": "warning.bg", "bad": "danger.fg", "bad-bg": "danger.bg", "info": "info.fg", "info-bg": "info.bg",
 }
 ALPHA_BAR = 0.72  # `.skinHeader.semiTransparent` (header over a backdrop): canvas at this opacity
+from tv import DOM_TOKENS, HDR_ALPHA, PLUGIN_TOKENS, SCRIM_ALPHA, pairs as tv_pairs, tv_css  # noqa: E402  (Flatcap TV rules live in scripts/tv.py)
 
 # --jf-* variable -> role (a name from ROLES). A `*Channel` twin ("r g b") is emitted when the client declares one.
 JF = {
@@ -191,6 +192,10 @@ def header(theme: dict, name: str, what: str) -> str:
 
 
 def emit(theme: dict, kind: str, i: dict) -> str:
+    if kind == "tv":
+        v = ";".join(block(theme, "slate", i) + [f"--fc-canvas-rgb:{chan(theme['themes']['slate']['bg.canvas'])}"])
+        return (header(theme, kind, "Flatcap TV (dark, TV-first: artwork first, interface second)") + f":root:root{{{v}}}\n"
+                + rules_css() + "\n" + osd_block(theme, i) + "\n" + tv_css(theme) + "\n")
     if kind in ("slate", "daylight"):
         v = ";".join(block(theme, kind, i))
         core = f":root:root{{{v}}}"
@@ -216,11 +221,12 @@ def inventory_errors(i: dict, outs: dict[Path, str]) -> list[str]:
         for m in re.finditer(r"--jf-([A-Za-z0-9-]+):", css):
             if m.group(1) not in names:
                 errs.append(f"{p.name}: --jf-{m.group(1)} is not in the Jellyfin {i['jellyfin_web']} inventory")
-        for sel in re.findall(r"(?m)^([^@{}/][^{}]*)\{", css) + re.findall(r"\}\s*([^@{}/][^{}]*)\{", css):
+        for sel in (re.findall(r"(?m)^([^@{}/][^{}]*)\{", css) + re.findall(r"\}\s*([^@{}/][^{}]*)\{", css)
+                    + re.findall(r"\{\s*([^@{}/\s][^{}]*)\{", css)):
             selectors.add(sel)
     for sel in selectors:
-        for t in re.findall(r"[.#][A-Za-z_][\w-]*", re.sub(r"\[[^\]]*\]|\(\s*[^)]*\)", "", sel)):
-            if t not in toks and not (t.startswith(".Mui") and t[1:].split("-")[0] in set(i.get("mui_components", []))):
+        for t in re.findall(r"[.#][A-Za-z_][\w-]*", re.sub(r"\[[^\]]*\]", "", sel)):
+            if t not in toks and t not in PLUGIN_TOKENS and t not in DOM_TOKENS and not (t.startswith(".Mui") and t[1:].split("-")[0] in set(i.get("mui_components", []))):
                 errs.append(f"selector token {t} is not in the Jellyfin {i['jellyfin_web']} inventory ({sel[:60]})")
     return sorted(set(errs))
 
@@ -284,7 +290,7 @@ def pairs(theme: dict) -> list[tuple[str, str, str, str, float, str]]:
     out.append(("osd", "OSD track (border.subtle) on scrim over a white frame (report only)", t["border.subtle"], bright, 1.0, "report"))
     out.append(("osd", "OSD buffered (text.disabled) on scrim over a white frame (report only)", t["text.disabled"], bright, 1.0, "report"))
     out.append(("osd", "OSD played (accent) vs buffered (text.disabled) (report only)", t["accent.fill"], t["text.disabled"], 1.0, "report"))
-    return out
+    return out + tv_pairs(theme)
 
 
 def rows(theme: dict) -> list[dict]:

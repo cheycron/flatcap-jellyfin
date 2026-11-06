@@ -108,6 +108,17 @@ Color uses whose value did not change (excluding the Dashboard, which receives n
 | player | `background-image: linear-gradient(rgba(16, 16, 16, 0.75), rgba(16, 16, 16, 0))` | 1 | `div.skinHeader.skinHeader-withBackground` |
 
 
+## Flatcap TV
+
+Same throwaway server (container `fc-tv-qa`, Jellyfin 12.4.0, synthetic media in a Docker volume, 1920×1080, Chromium via `playwright-core`), `flatcap-tv.css` as Branding Custom CSS on the Dark theme. Script: `qa/shoot-tv.mjs`.
+
+- **Static:** `python3 scripts/build.py --check` → `ok: 4 CSS files and 4 docs current, every --jf-* variable and class/id is in the Jellyfin 12.4.0 inventory, contrast targets met`. The three existing CSS files regenerate byte-identical (git shows them unmodified). The README/doc `build:` blocks in this repo are empty markers, so the doc half of that check is only as strong as that; the new rows are produced by `md_contrast` and were read from it directly.
+- **Contrast (computed, WCAG 2.x, all pass the SKILL.md targets used by the check):** header icons/tabs on the header scrim over a white backdrop: text.primary 8.45, text.muted 5.53, accent.fg 6.11 (black backdrop 12.55 / 8.22 / 9.09). Page text on the full-page dim over white: text.primary 9.00, text.secondary 6.24, text.muted 5.90. Item-page text on the 92% scrim over white: primary 9.67, secondary 6.71, muted 6.33, accent 7.00, warning 7.35. Section/card titles on canvas 12.15 / 8.43 (surface 11.07 / 7.68). Play button accent.on on accent.fill 9.30. Focus ring vs canvas 10.74, surface 9.79, raised 8.57, black poster edge 13.32. Report only (not gated): ring on a white poster edge 1.58 (the 2px offset keeps it off the artwork); badge edge on a white poster 1.92 (the glyph carries the meaning).
+- **Ran:** desktop layout and TV layout (`layout-tv`), home, movie library, item page and keyboard-focused card, each at 1920×1080 with backdrops on; a bright synthetic backdrop was also uploaded to one item to check the item-page scrim and header. Screenshots: `images/tv-home.png` (TV layout), `images/tv-focus.png` (TV layout), `images/tv-library.png` (desktop), `images/tv-detail.png` (desktop). I viewed them; they show the intended result but are synthetic gradients, not real posters.
+- **Jellyfin Enhanced:** the real plugin (12.14.0.0, from `raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/10.11/manifest.json`, Active after a server restart) was installed in the throwaway server. Without CSS the legacy title and the plugin row both rendered; with Flatcap TV the legacy `.pageTitleWithLogo` computes `display:none` and the plugin row is intact (`header.MuiAppBar-root .je-header-actions-row`). Not simulated.
+- **Optional titles block:** uncommented in the browser: cards with artwork `cardText` opacity 0, a hovered card 1, a card whose image container has `.defaultCardBackground` 1. The no-artwork card was a cloned, class-modified card, not a real item without images.
+- **Not tested:** real TV devices or remote controls (keyboard only), other browsers, mobile layout, hover/pressed states other than the above, a real library with real posters, the admin Dashboard.
+
 ## Residual Jellyfin defaults
 
 What the scan found unchanged, and why it was left:

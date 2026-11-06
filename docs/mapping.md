@@ -2,6 +2,17 @@
 
 The three files have the same structure: one block of `--fc-*` role variables and `--jf-palette-*` / `--jf-font-*` variables on `:root:root` (`:root:root` so the block wins over `[data-theme]` whatever the load order), then rules for the colors that Jellyfin hard-codes, each prefixed with `html ` for the same reason, then a dark "on video / on poster" scope. `flatcap-system.css` declares the Slate set and, inside `@media (prefers-color-scheme:light)`, the Daylight set.
 
+## Flatcap TV (`flatcap-tv.css`)
+
+A fourth file: the Slate file plus the rules in `scripts/tv.py`, appended after the shared rules. Same role variables, no new colors; sizes come from `metrics` and `typography`. Dark base theme only.
+
+- **Header:** flat, thin (`AppBar`), `bg.surface` on pages without a backdrop, transparent with a canvas scrim (88%, fading out at the lower edge) over backdrops; no `backdrop-filter`. Icons `text.muted`, active `accent.fg`. Rule `html:has(.je-header-actions-row) .skinHeader .pageTitle.pageTitleWithLogo{display:none}` hides the legacy logo/title when Jellyfin Enhanced's header row is in the DOM (the class is the plugin's, so it is not in the 12.4.0 inventory and is whitelisted in `scripts/tv.py`).
+- **Home rows:** larger portrait/backdrop cards and row spacing, compact `.section0` (My Media) cards, section titles larger in `text.secondary` without uppercase, smaller played indicator in the accent, thinner resume bar.
+- **Focus:** `.card:focus-visible`, `.card.show-focus:focus` (TV layout) and `:hover` scale 1.04 with a 2px `focus.ring` outline offset 2px; no shadow or glow; neighbours do not move (transform only); `prefers-reduced-motion: reduce` keeps the ring and drops the scale and transition.
+- **Backdrops:** the user's full-page backdrop is dimmed with the canvas at 90% (stock 86%); the item page has a matte gradient to `bg.canvas` (92% where the text sits). Bigger title, muted metadata, one filled Play button (`accent.fill`, `accent.on`), the other actions are icon buttons (styling only).
+- **Titles:** always visible. The last lines of the file are a commented-out optional block that hides `.cardText` on cards with artwork until focus or hover; cards whose image container has `.defaultCardBackground` keep their title.
+- Player OSD: the same dark Slate block as the other files.
+
 ## Decisions
 
 - **Base theme: Dark, for all three files.** Every color the Dark theme takes from a `--jf-*` variable is replaced through the variable; the colors it hard-codes are overridden by the rules below. Daylight therefore needs no Light base theme (it was rendered on Dark and inspected in Chromium). The built-in Light theme was not used as a base, and combining Flatcap with it was not tested.

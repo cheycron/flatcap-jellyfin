@@ -33,9 +33,22 @@
 
 **Flatcap for Jellyfin** brings the Flatcap visual system to your media server: quiet graphite (or soft light) surfaces behind your posters, one mineral-blue accent, IBM Plex Sans for the interface.
 
-It is three plain CSS files to paste into Jellyfin's **Custom CSS** box: **Flatcap Slate** (dark), **Flatcap Daylight** (light) and **Flatcap system**, which follows the device's light or dark setting. Every color comes from the Flatcap 2.0 core. No plugin, no build step on your server.
+It is four plain CSS files to paste into Jellyfin's **Custom CSS** box: **Flatcap Slate** (dark), **Flatcap Daylight** (light), **Flatcap system**, which follows the device's light or dark setting, and **Flatcap TV**, a dark-only, artwork-first variant for the couch. Every color comes from the Flatcap 2.0 core. No plugin, no build step on your server.
 
 > The interface organizes. Content takes the foreground. Color informs.
+
+### Flatcap TV
+
+<table>
+  <tr>
+    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-home.png" alt="Flatcap TV home in the TV layout" width="100%"></td>
+    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-focus.png" alt="Flatcap TV focused card with the focus ring" width="100%"></td>
+  </tr>
+  <tr>
+    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-library.png" alt="Flatcap TV library grid" width="100%"></td>
+    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-detail.png" alt="Flatcap TV item page" width="100%"></td>
+  </tr>
+</table>
 
 ## Install
 
@@ -45,7 +58,7 @@ Requires **Jellyfin 12.4** or newer (checked against the web client bundled with
 2. In Jellyfin: **Dashboard → Branding**, paste into **Custom CSS code**, and save. The CSS is stored in `branding.xml` (`<CustomCss>`) and sent to every web client.
 3. Reload the web client. Every user must use the **Dark** theme (*Settings → Display → Theme*; Dark is Jellyfin's default). All three files are written for Dark as the base theme.
 
-Paste only one file. Do not paste Slate and Daylight together.
+Paste only one file. Do not paste Slate and Daylight (or any two of the four) together.
 
 Pasting is required: an `@import` of the raw GitHub URL does **not** work. `raw.githubusercontent.com` answers with `Content-Type: text/plain` and `X-Content-Type-Options: nosniff`, and a browser refuses to load a stylesheet with that type (checked, see the [QA report](https://github.com/cheycron/flatcap-jellyfin/blob/main/docs/qa-report.md)). The Jellyfin 12.4 web client itself sets no Content-Security-Policy that would block it; the file type does.
 
@@ -56,6 +69,7 @@ Pasting is required: an `@import` of the raw GitHub URL does **not** work. `raw.
 
 - **Slate** and **Daylight** are fixed modes. **System** holds both sets and switches with `prefers-color-scheme` (Slate, or Daylight when the device is light).
 - The video player on-screen controls, the resume bar on posters and the volume popups stay on the dark Slate palette in every file: they sit on video or artwork, so a light Daylight panel there would be unreadable.
+- **Flatcap TV** is Slate-only and standalone (paste it alone, base theme Dark; it already contains everything Slate has). It is made for the TV layout and for sitting back from a screen: a thin flat header (transparent over backdrops, a Slate surface otherwise), larger posters and more room between rows, a compact *My Media* row, larger section titles, a crisp 2px focus ring with a 1.04 scale on the focused or hovered card (ring only under reduced motion), and an item page whose backdrop fades to the canvas so the text stays readable. Card titles stay visible. If you prefer artwork only, the last lines of the file hold a commented-out block, **"Optional: show titles only on focus/hover"**: uncomment it to hide titles until a card is focused or hovered; cards without artwork keep their title.
 - Each user can switch the custom CSS off for themselves (*Settings → Display*, "Disable custom CSS" in 12.4) and can add their own CSS on top.
 - **The server Dashboard (administration pages) does not receive Branding Custom CSS in 12.4.0**: every `/dashboard/*` route checked kept Jellyfin's stock styling. Home, libraries, item pages, search, the player and *Settings* (user preferences) are themed.
 
@@ -79,6 +93,7 @@ Every mapping is in [docs/mapping.md](https://github.com/cheycron/flatcap-jellyf
 - Variable and selector names were verified against the web client bundled with Jellyfin 12.4.0 (`ghcr.io/linuxserver/jellyfin:12.4ubu2604-ls57`). Another release can add or rename variables; `scripts/inventory.py` rebuilds the inventory from any release.
 - Rendering was checked in Chromium (Playwright) at 1440×900. Firefox, Safari, the desktop apps, Android and TV clients were not tested. Native (non-web) Jellyfin clients do not use the web Custom CSS at all.
 - The CSS does not change layout, sizes or animations. The one removal is the decorative `backdrop-filter: blur(5px)` on the volume/brightness popup (`.iconOsd`).
+- **Jellyfin Enhanced:** its header row (`header.MuiAppBar-root .je-header-actions-row`) overlapped the legacy Jellyfin logo and title. Flatcap TV hides that legacy `.skinHeader .pageTitle.pageTitleWithLogo` with an `html:has(.je-header-actions-row)` rule, so it does nothing without the plugin. Checked with Jellyfin Enhanced 12.14.0.0 installed from its official manifest in a throwaway 12.4.0 server (see the QA report).
 - Not themed: the Dashboard (see above); the TV guide's category colors, legacy folder-tree and context-menu widgets, and the placeholder card colors for items without artwork. See the [residual defaults](https://github.com/cheycron/flatcap-jellyfin/blob/main/docs/qa-report.md).
 
 ## Contributing
