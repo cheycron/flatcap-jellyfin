@@ -1,6 +1,6 @@
 # Flatcap for Jellyfin
 
-![Version](https://img.shields.io/badge/version-2.0.0-blueviolet) ![Jellyfin](https://img.shields.io/badge/Jellyfin-12.4%2B-00a4dc) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blueviolet) ![Jellyfin](https://img.shields.io/badge/Jellyfin-12.4%2B-blue) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/screenshot-slate.png" alt="Flatcap Slate in Jellyfin 12.4: the home page with a media row and Continue Watching, graphite surfaces and a mineral-blue accent" width="100%">
