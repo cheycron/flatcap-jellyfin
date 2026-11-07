@@ -1,172 +1,182 @@
 #!/usr/bin/env python3
-"""Generate the synthetic demo library used for the Flatcap Jellyfin screenshots.
+"""Build the demo library used for the Flatcap Jellyfin screenshots from openly licensed artwork.
 
-    python3 qa/make_media.py /tmp/fc-jf/media
+    python3 qa/make_media.py /tmp/fc-jf/art /tmp/fc-jf/media
 
-Everything is made here: gradient/geometric "posters" and "backdrops" drawn with Pillow, titles invented,
-videos rendered by ffmpeg from the backdrop with a running clock. No third-party artwork, no real people.
-Needs Python 3.10+, Pillow and ffmpeg (with drawtext). Not run by CI.
+Artwork (Blender open movies, CC BY; public-domain classics) comes from Wikimedia Commons, listed with author and
+license in images/CREDITS.md. Missing files are downloaded into the art dir (Commons thumbnails, polite delay).
+Posters/backdrops are cropped to 2:3 / 16:9, NFO files are written here (titles, years, one-sentence plots by the author),
+and every video is a tiny generated clip of the backdrop at 1 fps, never the film. Needs Python 3.10+, Pillow and ffmpeg.
+Not run by CI. Mount the output at /demo-media in the throwaway container, then run qa/seed.py.
 """
-from __future__ import annotations
-
-import colorsys
-import math
-import random
-import subprocess
-import sys
+import hashlib, subprocess, sys, time, urllib.parse, urllib.request
 from pathlib import Path
+from PIL import Image
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+ART = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/fc-jf/art")
+OUT = Path(sys.argv[2] if len(sys.argv) > 2 else "/tmp/fc-jf/media")
 
-FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-FONT_R = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-
-MOVIES = [  # title, year, hue, plot, shape
-    ("Lantern Harbor", 2019, 0.58, "A night ferry pilot keeps a failing lighthouse alive for one more winter.", "circles"),
-    ("The Quiet Orchard", 2021, 0.33, "Three siblings return to an abandoned orchard and decide whether to sell it.", "stripes"),
-    ("Paper Comet", 2018, 0.08, "A cartographer redraws the sky after a comet that nobody else remembers.", "rays"),
-    ("Glass Meridian", 2023, 0.50, "A survey crew crosses a frozen salt flat and finds a line on the map that moves.", "grid"),
-    ("Saltwater Chorus", 2017, 0.62, "Fishing towns along one coast share a single song and one rule about it.", "waves"),
-    ("Ember & Slate", 2022, 0.02, "Two restorers argue over how much of an old theater should be left broken.", "circles"),
-    ("Northbound Echo", 2020, 0.72, "A radio relay operator hears tomorrow's weather report a day too early.", "rays"),
-    ("Velvet Static", 2016, 0.85, "A synth repair shop becomes the last stop for a band that never existed.", "stripes"),
-    ("Marrow Lane", 2024, 0.14, "A baker, a courier and a city inspector share one very long Tuesday.", "grid"),
-    ("Kite Season", 2015, 0.42, "A village paints its roofs to guide a festival of kites home.", "waves"),
+# slug, title, year, minutes, genres, rating, poster(file, cx fractional crop centre), backdrop(file, cx), plot
+MOVIES = [
+    ("sintel", "Sintel", 2010, 15, ["Animation", "Fantasy"], 7.5, ("sintel-poster.jpg", .5), ("sintel-bd.jpg", .5),
+     "A young woman sets out to find the baby dragon she once befriended. Her search leads across a hard country and to a surprise."),
+    ("tos", "Tears of Steel", 2012, 12, ["Science Fiction", "Short"], 6.9, ("tos-poster.jpg", .5), ("tos-bd2.jpg", .5),
+     "A group of warriors and scientists gather in Amsterdam to try one last experiment that could stop the robots from taking over."),
+    ("bbb", "Big Buck Bunny", 2008, 10, ["Animation", "Comedy"], 6.8, ("bbb-poster.jpg", .5), ("bbb-bd.png", .5),
+     "A giant rabbit with a heart bigger than himself is pushed too far by three small rodents. His patience runs out in a very inventive way."),
+    ("ed", "Elephants Dream", 2006, 11, ["Animation", "Science Fiction"], 6.2, ("ed-poster", .58), ("ed-bd1.jpg", .5),
+     "Two strange characters explore a capricious and seemingly infinite machine. One of them is sure of what he sees, the other is not."),
+    ("cl", "Cosmos Laundromat", 2015, 12, ["Animation", "Fantasy"], 7.0, ("cl-poster.jpg", .5), ("cl-bd.jpg", .5),
+     "On a desolate island, a suicidal sheep named Franck meets a mysterious salesman. He offers a gift that lets Franck live a thousand lives."),
+    ("spring", "Spring", 2019, 8, ["Animation", "Fantasy"], 7.4, ("spring-poster.jpg", .5), ("spring-bd2.jpg", .5),
+     "A shepherd girl and her dog face ancient spirits in order to continue the cycle of life. A story about the renewal of nature."),
+    ("sf", "Sprite Fright", 2021, 11, ["Animation", "Comedy", "Horror"], 6.6, ("sf-poster.jpg", .5), ("sf-bd2.jpg", .5),
+     "A group of friends on a woodland picnic wakes something under the trees. The forest has its own idea of a campfire story."),
+    ("charge", "Charge", 2022, 5, ["Animation", "Science Fiction"], 6.7, ("charge-poster.jpg", .5), ("charge-bd3.png", .85),
+     "A battered, one-armed soldier is pursued across a ruined landscape. A last charge is the only thing left to protect."),
+    ("metro", "Metropolis", 1927, 150, ["Science Fiction", "Drama", "Silent"], 8.1, ("metro-poster.jpg", .5), ("metro-bd.jpg", .5),
+     "In a towering city of thinkers above and workers below, the son of the city's master crosses the divide. What he finds there threatens the order of both."),
+    ("caligari", "The Cabinet of Dr. Caligari", 1920, 77, ["Horror", "Silent"], 8.0, ("caligari-poster.jpg", .5), None,
+     "A traveling showman presents a sleepwalker at a fair, and a series of strange events follows the visit. A young man tries to piece together who is behind them."),
+    ("general", "The General", 1926, 79, ["Comedy", "Action", "Silent"], 8.1, ("general-poster.png", .5), None,
+     "A railway engineer chases a stolen locomotive behind enemy lines. The chase turns into one long, carefully timed stunt."),
+    ("kid", "The Kid", 1921, 68, ["Comedy", "Drama", "Silent"], 8.2, ("kid-poster.jpg", .5), None,
+     "A street-wise tramp takes in an abandoned child and raises him. Their small, improvised household is tested when officials step in."),
+    ("safety", "Safety Last!", 1923, 70, ["Comedy", "Silent"], 8.1, ("safety-poster.jpg", .5), None,
+     "A young man from a small town tries to make good in the city. A publicity stunt puts him on the side of a tall building."),
+    ("moon", "A Trip to the Moon", 1902, 12, ["Science Fiction", "Fantasy", "Silent"], 8.0, ("moon-poster.jpg", .5), None,
+     "A group of astronomers builds a capsule and fires it at the Moon. What they meet there is not what the textbooks predicted."),
 ]
-SHOW = ("Observatory Nine", 2022, 0.66, "Staff at a remote observatory log strange but entirely polite anomalies.",
-        [("Calibration", "The new technician learns which dials are allowed to be wrong."),
-         ("Dark Frames", "A week of cloud cover tests the crew's patience and its coffee supply."),
-         ("Parallax", "A visitor measures the same star twice and gets two answers.")])
+SHOW = ("caminandes", "Caminandes", 2013, ["Animation", "Comedy", "Family"], 7.6, ("cam-poster", .72), ("cam3b.png", .5),
+        "A small llama named Koro has simple ambitions and a very determined rival. Three short episodes about food, fences and friendship.",
+        [("Llama Drama", "cam1.png", 3, "Koro tries to cross a road to reach a tasty bush, but a stubborn rival is in the way."),
+         ("Gran Dillama", "cam2.png", 3, "Koro wants a bite of the neighbour's pasture. An electric fence and a very small helper make it difficult."),
+         ("Llamigos", "cam3.png", 3, "Winter is coming and food is short. Koro and Oti find that sharing makes a better plan.")])
 
 
-def col(h: float, s: float, v: float) -> tuple[int, int, int]:
-    r, g, b = colorsys.hsv_to_rgb(h % 1.0, s, v)
-    return int(r * 255), int(g * 255), int(b * 255)
+# local name -> (Commons file title, thumbnail width); every one is credited in images/CREDITS.md
+ARTWORK = {
+    "sintel-poster.jpg": ("Sintel poster.jpg", 960), "sintel-bd.jpg": ("Durian - Sintel-wallpaper-sintel.jpg", 1920),
+    "tos-poster.jpg": ("Tos-poster.png", 960), "tos-bd2.jpg": ("Tears of Steel frame 09 1a.jpg", 1920),
+    "bbb-poster.jpg": ("Big buck bunny poster big.jpg", 960), "bbb-bd.png": ("Big.Buck.Bunny.-.Frank.Rinky.Gimera.png", 1920),
+    "ed-bd1.jpg": ("Elephants Dream s8 proog.jpg", 1920),
+    "cl-poster.jpg": ("CosmosLaundromatPoster.jpg", 960), "cl-bd.jpg": ("Franck the caterpillar.jpg", 1920),
+    "spring-poster.jpg": ("Spring2019PillarPosterBlender.jpg", 960), "spring-bd2.jpg": ("SpringOpenMovie-final scene.jpg", 1920),
+    "sf-poster.jpg": ("Sprite Fright-movie poster.jpg", 960), "sf-bd2.jpg": ("Sprite Fright-concept art-group 02.jpg", 1920),
+    "charge-poster.jpg": ("Charge-movie poster.jpg", 960), "charge-bd3.png": ("Charge-concept art-robot 01.png", 1920),
+    "metro-poster.jpg": ("Boris Bilinski - Filmplakat für Metropolis restored.jpg", 960),
+    "metro-bd.jpg": ("1927 Boris Bilinski (1900-1948) Plakat für den Film Metropolis, Staatliche Museen zu Berlin.jpg", 1280),
+    "caligari-poster.jpg": ("The Cabinet of Doctor Caligari Movie poster.jpg", 960),
+    "general-poster.png": ("The General (1926) - Movie Poster 2.png", 800),
+    "kid-poster.jpg": ("The Kid (1921) poster.jpg", 960), "safety-poster.jpg": ("Safety last poster.jpg", 600),
+    "moon-poster.jpg": ("Voyage dans la Lune affiche.jpg", 800),
+    "cam1.png": ("Pablo Vazquez - Caminandes - Episode 1 - Llama Drama - Cover thumbnail.png", 1920),
+    "cam2.png": ("Blender Foundation - Caminandes - Episode 2 - Gran Dillama - Cover thumbnail.png", 1920),
+    "cam3.png": ("Blender Foundation - Caminandes - Episode 3 - Llamigos - Cover thumbnail.png", 1920),
+    "cam2b.png": ("Caminandes gran dillama.png", 1920),
+    "cam3b.png": ("Blender Foundation - Caminandes - Episode 3 - Llamigos - Koro and Oti share more food to eat at night.png", 1920),
+}
 
 
-def gradient(w: int, h: int, c1, c2, angle: float = 0.35) -> Image.Image:
-    img = Image.new("RGB", (w, h))
-    px = img.load()
-    ca, sa = math.cos(angle), math.sin(angle)
-    span = abs(w * ca) + abs(h * sa)
-    for y in range(h):
-        for x in range(w):
-            t = max(0.0, min(1.0, (x * ca + y * sa) / span + 0.2))
-            px[x, y] = tuple(int(c1[i] + (c2[i] - c1[i]) * t) for i in range(3))
-    return img
+def fetch_art():
+    """Download missing artwork as Commons thumbnails. Widths below a source's width are not guaranteed to be a standard
+    thumbnail size: if a request is refused, download that file by hand from its Commons page into the art dir."""
+    ART.mkdir(parents=True, exist_ok=True)
+    for local, (title, w) in ARTWORK.items():
+        if (ART / local).exists():
+            continue
+        n = title.replace(" ", "_")
+        h = hashlib.md5(n.encode()).hexdigest()
+        q = urllib.parse.quote(n)
+        url = f"https://upload.wikimedia.org/wikipedia/commons/thumb/{h[0]}/{h[:2]}/{q}/{w}px-{q}"
+        for attempt in range(4):
+            time.sleep(4)
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "flatcap-jellyfin-qa/1.0 (https://github.com/cheycron/flatcap-jellyfin)"})
+                (ART / local).write_bytes(urllib.request.urlopen(req, timeout=90).read())
+                print("fetched", local, flush=True)
+                break
+            except OSError as e:
+                print("retry", local, str(e)[:60], flush=True)
+                time.sleep(20)
 
 
-def shapes(img: Image.Image, hue: float, kind: str, seed: int) -> None:
-    rnd = random.Random(seed)
-    w, h = img.size
-    ov = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(ov)
-    for i in range(9):
-        c = col(hue + rnd.uniform(-0.08, 0.08), rnd.uniform(0.25, 0.6), rnd.uniform(0.7, 1.0)) + (rnd.randint(30, 90),)
-        if kind == "circles":
-            r = rnd.randint(h // 8, h // 2)
-            x, y = rnd.randint(0, w), rnd.randint(0, h)
-            d.ellipse((x - r, y - r, x + r, y + r), fill=c)
-        elif kind == "stripes":
-            x = rnd.randint(-w // 4, w)
-            d.polygon([(x, 0), (x + w // 7, 0), (x + w // 7 - h // 3, h), (x - h // 3, h)], fill=c)
-        elif kind == "rays":
-            cx, cy = w * 0.5, h * 0.62
-            a = rnd.uniform(0, math.tau)
-            d.polygon([(cx, cy), (cx + math.cos(a) * w * 2, cy + math.sin(a) * w * 2),
-                       (cx + math.cos(a + 0.18) * w * 2, cy + math.sin(a + 0.18) * w * 2)], fill=c)
-        elif kind == "grid":
-            s = max(w, h) // 8
-            x, y = rnd.randrange(0, w, s), rnd.randrange(0, h, s)
-            d.rectangle((x, y, x + s * rnd.randint(1, 3), y + s * rnd.randint(1, 3)), fill=c)
-        else:  # waves
-            y0 = rnd.randint(0, h)
-            pts = [(x, y0 + math.sin(x / (w / 6) + i) * h / 10) for x in range(0, w + 8, 8)]
-            d.polygon(pts + [(w, h), (0, h)], fill=c)
-    img.paste(Image.alpha_composite(img.convert("RGBA"), ov.filter(ImageFilter.GaussianBlur(2))).convert("RGB"))
+def fit(img, w, h, cx=.5, cy=.5):
+    """Cover-crop to w x h; cx/cy position the window in the source."""
+    s = max(w / img.width, h / img.height)
+    im = img.resize((round(img.width * s), round(img.height * s)), Image.LANCZOS)
+    x = round((im.width - w) * cx)
+    y = round((im.height - h) * cy)
+    return im.crop((x, y, x + w, y + h))
 
 
-def wrap(draw: ImageDraw.ImageDraw, text: str, font, width: int) -> list[str]:
-    lines, cur = [], ""
-    for word in text.split():
-        t = (cur + " " + word).strip()
-        if draw.textlength(t, font=font) <= width:
-            cur = t
-        else:
-            lines.append(cur)
-            cur = word
-    lines.append(cur)
-    return lines
+def src(name, special=None):
+    if name == "ed-poster":
+        im = Image.open(ART / "ed-bd1.jpg").convert("RGB")
+        return im.crop((int(1920 * .58) - 360, 0, int(1920 * .58) + 360, 1080))  # portrait around Proog
+    if name == "cam-poster":
+        im = Image.open(ART / "cam2b.png").convert("RGB")
+        return im
+    return Image.open(ART / name).convert("RGB")
 
 
-def poster(path: Path, title: str, year: int, hue: float, kind: str, seed: int) -> None:
-    w, h = 600, 900
-    img = gradient(w, h, col(hue, 0.55, 0.30), col(hue + 0.06, 0.45, 0.78), 1.2)
-    shapes(img, hue, kind, seed)
-    d = ImageDraw.Draw(img)
-    f = ImageFont.truetype(FONT, 56)
-    lines = wrap(d, title.upper(), f, w - 100)
-    y = h - 90 - 70 * len(lines)
-    d.rectangle((0, y - 40, w, h), fill=(0, 0, 0))
-    img.paste(Image.blend(img.crop((0, y - 40, w, h)), Image.new("RGB", (w, h - y + 40), (10, 12, 16)), 0.62), (0, y - 40))
-    d = ImageDraw.Draw(img)
-    for ln in lines:
-        d.text((50, y), ln, font=f, fill=(244, 246, 248))
-        y += 70
-    d.text((50, h - 62), str(year), font=ImageFont.truetype(FONT_R, 30), fill=(210, 216, 224))
-    img.save(path, quality=90)
+def poster(name, cx, out):
+    im = fit(src(name), 600, 900, cx, .5)
+    im.save(out, quality=88, optimize=True, progressive=True)
 
 
-def backdrop(path: Path, title: str, hue: float, kind: str, seed: int, size=(1920, 1080)) -> None:
-    w, h = size
-    img = gradient(w, h, col(hue, 0.6, 0.22), col(hue + 0.08, 0.4, 0.70), 0.2)
-    shapes(img, hue, kind, seed + 99)
-    d = ImageDraw.Draw(img)
-    f = ImageFont.truetype(FONT, 110)
-    d.text((w // 2, h // 2), title.upper(), font=f, fill=(255, 255, 255), anchor="mm")
-    img.save(path, quality=88)
+def backdrop(name, cx, out):
+    im = fit(src(name), 1920, 1080, cx, .5)
+    im.save(out, quality=85, optimize=True, progressive=True)
 
 
-def video(out: Path, img: Path, title: str, secs: int, hue: float) -> None:
-    tone = 220 + int(hue * 300)
-    cmd = ["ffmpeg", "-y", "-v", "error", "-loop", "1", "-framerate", "12", "-t", str(secs), "-i", str(img),
-           "-f", "lavfi", "-t", str(secs), "-i", f"sine=frequency={tone}:sample_rate=44100",
-           "-vf", "scale=960:540,drawbox=x=0:y=ih-14:w=iw*t/%d:h=14:color=white@0.8:t=fill,"
-                  "drawtext=fontfile=%s:text='%%{pts\\:hms}':fontsize=44:fontcolor=white:x=40:y=40:box=1:boxcolor=black@0.5:boxborderw=12" % (secs, FONT_R),
-           "-c:v", "libx264", "-preset", "ultrafast", "-crf", "34", "-pix_fmt", "yuv420p",
-           "-c:a", "aac", "-b:a", "48k", "-shortest", str(out)]
-    subprocess.run(cmd, check=True)
+def clip(out, bd, minutes, w=960):
+    secs = minutes * 60
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-loop", "1", "-framerate", "1", "-t", str(secs), "-i", str(bd),
+                    "-f", "lavfi", "-t", str(secs), "-i", "anullsrc=r=22050:cl=mono",
+                    "-vf", f"scale={w}:-2,format=yuv420p", "-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage", "-crf", "30", "-g", "10",
+                    "-c:a", "aac", "-b:a", "16k", "-shortest", str(out)], check=True)
 
 
-def nfo(path: Path, root: str, title: str, year: int, plot: str, extra: str = "") -> None:
-    path.write_text(f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<{root}>\n  <title>{title}</title>\n'
-                    f"  <year>{year}</year>\n  <plot>{plot}</plot>\n  <genre>Drama</genre>\n{extra}</{root}>\n")
+def esc(s):
+    return s.replace("&", "&amp;")
 
 
-def main() -> None:
-    root = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/fc-jf/media")
-    for n, (title, year, hue, plot, kind) in enumerate(MOVIES):
-        d = root / "movies" / f"{title} ({year})"
-        d.mkdir(parents=True, exist_ok=True)
-        poster(d / "poster.jpg", title, year, hue, kind, n)
-        backdrop(d / "backdrop.jpg", title, hue, kind, n)
-        video(d / f"{title} ({year}).mp4", d / "backdrop.jpg", title, 60, hue)
-        nfo(d / "movie.nfo", "movie", title, year, plot, "  <runtime>1</runtime>\n  <rating>7.4</rating>\n  <mpaa>PG</mpaa>\n")
-        print("movie", title)
-    title, year, hue, plot, eps = SHOW
-    d = root / "shows" / f"{title} ({year})"
-    (d / "Season 01").mkdir(parents=True, exist_ok=True)
-    poster(d / "poster.jpg", title, year, hue, "grid", 50)
-    backdrop(d / "backdrop.jpg", title, hue, "grid", 50)
-    nfo(d / "tvshow.nfo", "tvshow", title, year, plot)
-    for i, (et, ep_plot) in enumerate(eps, 1):
-        f = d / "Season 01" / f"{title} S01E{i:02d}.mp4"
-        eb = d / "Season 01" / f"ep{i}.jpg"
-        backdrop(eb, f"{title} - {et}", hue + i * 0.03, "rays", 60 + i, (1280, 720))
-        video(f, eb, et, 45, hue)
-        eb.rename(d / "Season 01" / f"{title} S01E{i:02d}-thumb.jpg")
-        nfo(d / "Season 01" / f"{title} S01E{i:02d}.nfo", "episodedetails", et, year, ep_plot,
-            f"  <season>1</season>\n  <episode>{i}</episode>\n")
+def nfo(path, root, title, year, plot, genres, rating=None, minutes=None, extra=""):
+    g = "".join(f"  <genre>{x}</genre>\n" for x in genres)
+    r = f"  <rating>{rating}</rating>\n" if rating else ""
+    m = f"  <runtime>{minutes}</runtime>\n" if minutes else ""
+    path.write_text(f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<{root}>\n  <title>{esc(title)}</title>\n  <year>{year}</year>\n'
+                    f"  <plot>{esc(plot)}</plot>\n{g}{r}{m}{extra}</{root}>\n")
+
+
+def main():
+    fetch_art()
+    for slug, title, year, mins, genres, rating, (pf, pcx), bd, plot in MOVIES:
+        d = OUT / "movies" / f"{title} ({year})"
+        if d.exists():
+            continue
+        d.mkdir(parents=True)
+        poster(pf, pcx, d / "poster.jpg")
+        bf, bcx = bd or (None, 0)
+        if bf:
+            backdrop(bf, bcx, d / "backdrop.jpg")
+        clip(d / f"{title} ({year}).mp4", d / ("backdrop.jpg" if bf else "poster.jpg"), mins)
+        nfo(d / "movie.nfo", "movie", title, year, plot, genres, rating, mins, "  <mpaa>PG</mpaa>\n")
+        print("movie", title, flush=True)
+    slug, title, year, genres, rating, (pf, pcx), (bf, bcx), plot, eps = SHOW
+    if (OUT / "shows" / f"{title} ({year})").exists():
+        return
+    d = OUT / "shows" / f"{title} ({year})"
+    (d / "Season 01").mkdir(parents=True)
+    poster(pf, pcx, d / "poster.jpg")
+    backdrop(bf, bcx, d / "backdrop.jpg")
+    nfo(d / "tvshow.nfo", "tvshow", title, year, plot, genres, rating, extra="  <mpaa>TV-Y</mpaa>\n")
+    for i, (et, thumb, mins, ep_plot) in enumerate(eps, 1):
+        base = d / "Season 01" / f"{title} S01E{i:02d}"
+        fit(Image.open(ART / thumb).convert("RGB"), 1280, 720).save(f"{base}-thumb.jpg", quality=85, optimize=True)
+        clip(f"{base}.mp4", f"{base}-thumb.jpg", mins, 640)
+        nfo(Path(f"{base}.nfo"), "episodedetails", et, (2013, 2013, 2016)[i - 1], ep_plot, [], minutes=mins, extra=f"  <season>1</season>\n  <episode>{i}</episode>\n")
     print("show", title)
 
 

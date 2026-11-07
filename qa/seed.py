@@ -67,25 +67,26 @@ def main() -> None:
                                 for t in ((typ,) if typ == "Movie" else ("Series", "Season", "Episode"))],
                 "PathInfos": [{"Path": path}]}
         call("POST", f"/Library/VirtualFolders?name={name}&collectionType={ctype}&refreshLibrary=true", {"LibraryOptions": opts}, token)
-    for _ in range(90):
-        items = call("GET", f"/Items?userId={uid}&Recursive=true&IncludeItemTypes=Movie,Episode", token=token)["Items"]
-        if len(items) >= 13:
+    for _ in range(120):
+        items = call("GET", f"/Items?userId={uid}&Recursive=true&IncludeItemTypes=Movie,Episode&Fields=RunTimeTicks", token=token)["Items"]
+        if len(items) >= 17 and all(i.get("RunTimeTicks") for i in items):
             break
         time.sleep(2)
     print("items", len(items))
-    by = {i["Name"]: i["Id"] for i in items}
-    played = ["Paper Comet", "Glass Meridian", "Kite Season", "Calibration"]
-    partial = {"Lantern Harbor": 0.62, "The Quiet Orchard": 0.35, "Northbound Echo": 0.18, "Dark Frames": 0.5}
+    by = {i["Name"]: i for i in items}
+    played = ["Big Buck Bunny", "Elephants Dream", "Llama Drama"]
+    partial = {"Sintel": 0.62, "Tears of Steel": 0.35, "Spring": 0.18, "Sprite Fright": 0.48, "Gran Dillama": 0.5}
     for n in played:
         if n in by:
-            call("POST", f"/UserPlayedItems/{by[n]}?userId={uid}", token=token)
+            call("POST", f"/UserPlayedItems/{by[n]['Id']}?userId={uid}", token=token)
     for n, frac in partial.items():
         if n in by:
-            ticks = int(frac * 60 * 10_000_000)
-            call("POST", f"/UserItems/{by[n]}/UserData?userId={uid}", {"PlaybackPositionTicks": ticks, "Played": False}, token)
-    # one favorite so the heart state shows
-    if "Marrow Lane" in by:
-        call("POST", f"/UserFavoriteItems/{by['Marrow Lane']}?userId={uid}", token=token)
+            ticks = int(frac * by[n]["RunTimeTicks"])
+            call("POST", f"/UserItems/{by[n]['Id']}/UserData?userId={uid}", {"PlaybackPositionTicks": ticks, "Played": False}, token)
+    # a few favorites so the heart state shows
+    for n in ("Charge", "Tears of Steel", "Big Buck Bunny"):
+        if n in by:
+            call("POST", f"/UserFavoriteItems/{by[n]['Id']}?userId={uid}", token=token)
     print("seeded; user id", uid)
 
 

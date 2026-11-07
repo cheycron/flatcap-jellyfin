@@ -29,16 +29,25 @@ const jeStandIn = async () => {
   });
 };
 const V = {
-  async home() { await go('home'); await jeStandIn(); },
+  async home() {
+    await go('home'); await jeStandIn();
+    // TV layout is taller: scroll so Continue Watching and the Recently Added posters are whole (the tail of My Media stays above)
+    if (await p.evaluate(() => document.documentElement.classList.contains('layout-tv'))) { await p.evaluate((y) => window.scrollTo(0, y), +(process.env.TV_HOME_SCROLL || 0)); await p.waitForTimeout(600); }
+  },
   async library() { await go(`movies?topParentId=${ctx.views.Movies}&collectionType=movies`, 5500); },
-  async detail() { await go(`details?id=${ctx.by[process.env.DETAIL_ITEM || 'Lantern Harbor']}`, 5500); },
+  async detail() { await go(`details?id=${ctx.by[process.env.DETAIL_ITEM || 'Tears of Steel']}`, 5500); },
   async focus() {
     await go('home', 5000);
-    // keyboard modality first, so :focus-visible and (TV layout) .show-focus apply, then focus a Continue Watching card
+    const tv = await p.evaluate(() => document.documentElement.classList.contains('layout-tv'));
+    // scroll the Recently Added rows into view, then focus a middle poster the way a keyboard / remote does (:focus-visible, TV layout .show-focus)
+    await p.evaluate((y) => window.scrollTo(0, y), tv ? 1050 : 660);
+    await p.waitForTimeout(500);
     await p.keyboard.press('Tab');
-    // desktop layout: the card's link takes focus; TV layout: the .card itself (tabindex) and arrow keys move it
-    await p.evaluate(() => { const l = document.querySelectorAll('.section1 .card a.cardContent'); const c = document.querySelectorAll('.section1 .card'); (document.documentElement.classList.contains('layout-tv') ? c[0] : l[1])?.focus(); });
-    if (await p.evaluate(() => document.documentElement.classList.contains('layout-tv'))) await p.keyboard.press('ArrowRight');
+    await p.evaluate(([tv, n]) => {
+      const row = [...document.querySelectorAll('.homePage:not(.hide) .verticalSection')].filter((s) => s.querySelector('.itemsContainer .card'))[2];
+      const cards = row.querySelectorAll('.card');
+      const c = cards[n]; (tv ? c : c.querySelector('a.cardContent') || c).focus({ preventScroll: true });
+    }, [tv, +(process.env.FOCUS_CARD || 3)]);
     await p.waitForTimeout(900);
   },
 };

@@ -10,7 +10,7 @@
   <img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/screenshot-daylight.png" alt="Flatcap Daylight in Jellyfin 12.4: the same home page in the light mode, with soft light surfaces" width="100%">
 </p>
 
-<p align="center"><sub>Flatcap Slate (dark) above, Flatcap Daylight (light) below, on a Jellyfin 12.4.0 demo library (synthetic titles and artwork).</sub></p>
+<p align="center"><sub>Flatcap Slate (dark) above, Flatcap Daylight (light) below, on a Jellyfin 12.4.0 demo library of openly licensed artwork (see <a href="https://github.com/cheycron/flatcap-jellyfin/blob/main/images/CREDITS.md">Screenshot artwork</a>).</sub></p>
 
 <table>
   <tr>
@@ -41,14 +41,19 @@ It is four plain CSS files to paste into Jellyfin's **Custom CSS** box: **Flatca
 
 <table>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-home.png" alt="Flatcap TV home in the TV layout" width="100%"></td>
-    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-focus.png" alt="Flatcap TV focused card: inset focus ring on the poster, desktop layout" width="100%"></td>
+    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-home.png" alt="Flatcap TV home: My Media, Continue Watching with resume bars and Recently Added movies" width="100%"></td>
+    <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-focus.png" alt="Flatcap TV focused poster: inset focus ring and zoom, nothing clipped" width="100%"></td>
   </tr>
   <tr>
     <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-library.png" alt="Flatcap TV library grid" width="100%"></td>
     <td><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-detail.png" alt="Flatcap TV item page" width="100%"></td>
   </tr>
+  <tr>
+    <td colspan="2"><img src="https://raw.githubusercontent.com/cheycron/flatcap-jellyfin/main/images/tv-tvlayout.png" alt="Flatcap TV home in Jellyfin's TV layout: large type, artwork-first rows" width="100%"></td>
+  </tr>
 </table>
+
+<p align="center"><sub>Screenshot artwork: Blender Foundation open movies (CC BY) and public-domain classics from Wikimedia Commons. Authors, sources and licenses are listed in <a href="https://github.com/cheycron/flatcap-jellyfin/blob/main/images/CREDITS.md">images/CREDITS.md</a>.</sub></p>
 
 ## Install
 

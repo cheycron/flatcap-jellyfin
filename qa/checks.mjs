@@ -74,7 +74,7 @@ if (what === 'routes') {
   await setBrandingCss(css('slate'));
   const { b, p } = await launch(); await login(p);
   const r = {};
-  for (const h of ['home', 'search', 'movies?topParentId=' + ctx.views.Movies, 'details?id=' + ctx.by['Lantern Harbor'], `mypreferencesdisplay?userId=${ctx.uid}`, 'dashboard', 'dashboard/branding', 'dashboard/users', 'dashboard/libraries', 'dashboard/playback/transcoding']) {
+  for (const h of ['home', 'search', 'movies?topParentId=' + ctx.views.Movies, 'details?id=' + ctx.by['Sintel'], `mypreferencesdisplay?userId=${ctx.uid}`, 'dashboard', 'dashboard/branding', 'dashboard/users', 'dashboard/libraries', 'dashboard/playback/transcoding']) {
     await p.goto(`${BASE}/web/#/${h}`); await p.waitForTimeout(3500);
     r[h.split('?')[0]] = await p.evaluate(() => [...document.querySelectorAll('style')].some((s) => s.textContent.includes('--fc-canvas')));
   }
